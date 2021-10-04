@@ -1,0 +1,146 @@
+```{r}
+# Data Import
+pacman::p_load(tidyverse, rgl, plotrix)
+load("prediction/r_test.RData")
+load("prediction/r_train.RData")
+load("prediction/th_test.RData")
+load("prediction/th_train.RData")
+load("prediction/v_test.RData")
+load("prediction/v_train.RData")
+```
+```{r}
+# Data recovery
+n_blades <- 22
+r <- rbind(r_train, r_test) %>%
+  cbind(train = c(rep(T, nrow(r_train)), rep(F, nrow(r_test)))) %>%
+  mutate(ik = paste(i, k, omega)) %>%
+  ungroup() %>%
+  select(fit.r = fit, res.r = res, train.r = train, ik)
+th <- rbind(th_train, th_test) %>%
+  cbind(train = c(rep(T, nrow(th_train)), rep(F, nrow(th_test)))) %>%
+  mutate(ik = paste(i, k, omega)) %>%
+  ungroup() %>%
+  select(fit.th.low = fit, res.th.low = res, train.th = train, ik)
+data <- rbind(V_train, V_test) %>%
+  cbind(train = c(
+    rep(T, nrow(V_train)),
+    rep(F, nrow(V_test))
+  )) %>%
+  mutate(ik = paste(i, k, omega)) %>%
+  ungroup() %>%
+  select(
+    i, j, k, omega, ik,
+    x, r, th,
+    percent.th = th_percent, V,
+    fit.V = fit, res.V = res, train.V = train
+  ) %>%
+  right_join(r, by = "ik") %>%
+  right_join(th, by = "ik") %>%
+  mutate(
+    fit.th = (percent.th - 0.5) * 2 * pi / n_blades + fit.th.low,
+    res.th = fit.th - th
+  ) %>%
+  select(-ik)
+rm(r, th)
+```
+
+
+
+
+
+
+
+```{r warning=FALSE}
+# Plot of training (red) & testing (blue)
+MD <- "V" # input the Y of the model which could be r, th, V
+OM <- 7808 # input the speed of the rotor
+FP <- "tt" # path of floder to store plots
+viewpoint <- c(0, 0, 0) # angle of the view
+zoom <- 0.8 # zoom times
+for (K in sort(unique(data$k))) {
+  dfp <- data %>% filter(k == K, omega == OM)
+  dfp$col <- ifelse(dfp[, paste("train.", MD, sep = "")], "red", "blue")
+  plot3d(dfp$x, dfp$r * cos(dfp$th), dfp$r * sin(dfp$th),
+    xlab = "x", ylab = "y", zlab = "z",
+    main = paste(MD, "K =", K, "Omega =", OM),
+    col = dfp$col, box = F, axes = T
+  )
+  rgl.viewpoint(viewpoint[1], viewpoint[2], viewpoint[3], zoom = zoom)
+  snapshot3d(paste(FP, "/", MD, "-", OM, "-", K, ".", "png", sep = ""), "png")
+}
+```
+
+
+
+
+```{r warning=FALSE}
+# Plot of originals
+OM <- 7808 # input the speed of the rotor
+FP <- "og" # path of floder to store plots
+viewpoint <- c(0, 0, 0) # angle of the view
+zoom <- 0.8 # zoom times
+for (K in sort(unique(data$k))) {
+  dfp <- data %>% filter(k == K, omega == OM)
+  dfp$col <- color.scale(
+    dfp$V,
+    c(0, 1, 1), c(1, 1, 0), 0
+  )
+  plot3d(dfp$x, dfp$r * cos(dfp$th), dfp$r * sin(dfp$th),
+    xlab = "x", ylab = "y", zlab = "z", main = paste("K =", K, "Omega =", OM),
+    col = dfp$col, box = F, axes = T
+  )
+  rgl.viewpoint(viewpoint[1], viewpoint[2], viewpoint[3], zoom = zoom)
+  snapshot3d(paste(FP, "/", FP, "-", OM, "-", K, ".", "png", sep = ""), "png")
+}
+```
+```{r warning=FALSE}
+# Plot of fits
+OM <- 7808 # input the speed of the rotor
+FP <- "ft" # path of floder to store plots
+viewpoint <- c(0, 0, 0) # angle of the view
+zoom <- 0.8 # zoom times
+for (K in sort(unique(data$k))) {
+  dfp <- data %>% filter(k == K, omega == OM)
+  dfp$col <- color.scale(
+    dfp$fit.V,
+    c(0, 1, 1), c(1, 1, 0), 0
+  )
+  plot3d(dfp$x, dfp$fit.r * cos(dfp$fit.th), dfp$fit.r * sin(dfp$fit.th),
+    xlab = "x", ylab = "y", zlab = "z", main = paste("K =", K, "Omega =", OM),
+    col = dfp$col, box = F, axes = T
+  )
+  rgl.viewpoint(viewpoint[1], viewpoint[2], viewpoint[3], zoom = zoom)
+  snapshot3d(paste(FP, "/", FP, "-", OM, "-", K, ".", "png", sep = ""), "png")
+}
+```
+
+
+```{r}
+# Plot of training (red) & testing (blue)
+
+OM <- 11074 # input the speed of the rotor
+FP <- "tt" # path of floder to store plots
+viewpoint <- c(-45, 30, 30) # angle of the view
+zoom <- 0.8 # zoom times
+
+  dfp <- data %>% filter(omega == OM)
+  dfp$col <- color.scale(dfp$r, c(0, 1, 1), c(1, 1, 0), 0)
+  plot3d(dfp$x, dfp$r * cos(dfp$th), dfp$r * sin(dfp$th),
+    xlab = "", ylab = "", zlab = "",
+    main = paste("Omega =", OM),
+    col = dfp$col, box = F, axes = T
+  )
+  rgl.viewpoint(viewpoint[1], viewpoint[2], viewpoint[3], zoom = zoom)
+  snapshot3d(paste(FP, "/", MD, "-", OM, "-",  ".", "png", sep = ""), "png")
+
+  
+for(i in 1:550999){
+  if (dfp$k[i] %% 2 == 0)
+  {dfp$train.th[i] <- "TRUE"}
+  else {dfp$train.th[i] <- "FALSE"}
+}
+  
+
+  
+```
+
